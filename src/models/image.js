@@ -6,7 +6,7 @@ const ImageSchema = new Schema({
     title: { type: String },
     description: { type: String },
     filename: { type: String },
-    viewas: { type: Number, default: 0 },
+    views: { type: Number, default: 0 },
     likes: { type: Number, default: 0 },
     timestamp: { type: Date, default: Date.now }
 });

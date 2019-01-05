@@ -2,13 +2,26 @@ const ctrl = {};
 const path = require('path');
 const { randowNumber } = require('../helpers/libs');
 const fs = require('fs-extra');
-const { Image } = require('../models');
+const { Image, Comment } = require('../models');
+const md5 = require("md5");
 
-ctrl.index = (req, res) => {
-    res.send('Index image');
+ctrl.index = async (req, res) => {
+    const viewModel = { image: {}, comments: {} }
+    const { image_id } = req.params;
+    const image = await Image.findOne({ filename: { $regex: image_id } });
+    if (image) {
+        image.views = image.views + 1;
+        viewModel.image = image;
+        await image.save();
+        const comments = await Comment.find({ image_id: image._id });
+        viewModel.comments = comments;
+        res.render("image", viewModel);
+    } else {
+        res.redirect('/');
+    }
 }
 
-ctrl.create =  (req, res) => {
+ctrl.create = (req, res) => {
     const saveImage = async () => {
         const imgUrl = randowNumber();
         const images = await Image.find({ filename: imgUrl });
@@ -26,9 +39,8 @@ ctrl.create =  (req, res) => {
                     filename: imgUrl + ext,
                     description: req.body.description
                 });
-                const imageSave = await newImg.save();
-                //res.redirect('/images');
-                res.send('create image');
+                await newImg.save();
+                res.redirect('/images/' + imgUrl);
             } else {
                 await fs.unlink(imageTempPath);
                 res.status(500).json({ error: 'Only images are allawed' });
@@ -38,12 +50,29 @@ ctrl.create =  (req, res) => {
     saveImage();
 }
 
-ctrl.like = (req, res) => {
-    res.send('remove image');
+ctrl.like = async (req, res) => {
+    const { image_id } = req.params;
+    const image = await Image.findOne({ filename: { $regex: image_id } });
+    if (image) {
+        image.likes = image.likes + 1;
+        await image.save();
+        res.json({ like: image.likes });
+    } else {
+        res.status(500).json({ error: 'Internal Error' });
+    }
 }
 
-ctrl.comment = (req, res) => {
-    res.send('Index page');
+ctrl.comment = async (req, res) => {
+    const image = await Image.findOne({ filename: { $regex: req.params.image_id } });
+    if (image) {
+        const newComment = new Comment(req.body);
+        newComment.gravatar = md5(newComment.email);
+        newComment.image_id = image._id;
+        await newComment.save();
+        res.redirect('/images/' + image.uniqueId);
+    } else {
+        res.redirect('/')
+    }
 }
 
 ctrl.remove = (req, res) => {
