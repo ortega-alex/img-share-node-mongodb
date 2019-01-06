@@ -4,9 +4,10 @@ const { randowNumber } = require('../helpers/libs');
 const fs = require('fs-extra');
 const { Image, Comment } = require('../models');
 const md5 = require("md5");
+const sidebar = require('../helpers/sidebars');
 
 ctrl.index = async (req, res) => {
-    const viewModel = { image: {}, comments: {} }
+    let viewModel = { image: {}, comments: {} }
     const { image_id } = req.params;
     const image = await Image.findOne({ filename: { $regex: image_id } });
     if (image) {
@@ -15,6 +16,7 @@ ctrl.index = async (req, res) => {
         await image.save();
         const comments = await Comment.find({ image_id: image._id });
         viewModel.comments = comments;
+        viewModel = await sidebar(viewModel);
         res.render("image", viewModel);
     } else {
         res.redirect('/');
@@ -75,7 +77,14 @@ ctrl.comment = async (req, res) => {
     }
 }
 
-ctrl.remove = (req, res) => {
+ctrl.remove = async (req, res) => {
+    const image = await Image.findOne({ filename: { $regex: req.params.image_id } });
+    if (image) {
+        await fs.unlink(path.resolve('./src/public/upload/' + image.filename));
+        await Comment.deleteOne({ image_id: image._id });
+        await image.remove();
+        res.json(true);
+    }
     res.send('Index page');
 }
 
